@@ -9,11 +9,23 @@ type Producer struct {
 }
 
 type KafkaProducer interface {
-	ProduceMessage()
+	ProduceMessage(topic string, message string) (int32, int64, error)
+	Close()
 }
 
-func (p *Producer) ProduceMessage() {
+func (p *Producer) ProduceMessage(topic string, message string) (int32, int64, error) {
+	msg := &sarama.ProducerMessage{
+		Topic: topic,
+		Value: sarama.StringEncoder(message),
+	}
 
+	partition, offset, err := p.SyncProducer.SendMessage(msg)
+	return partition, offset, err
+}
+
+func (p *Producer) Close() error {
+	err := p.SyncProducer.Close()
+	return err
 }
 
 func CreateSyncProducer(brokerList []string) (*Producer, error) {
