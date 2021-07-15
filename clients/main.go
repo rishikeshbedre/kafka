@@ -2,12 +2,17 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"kafka-client/producer"
 	"kafka-client/consumer"
+
+	"github.com/Shopify/sarama"
 )
 
 func main() {
+	sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
+
 	producerClient, clientErr := producer.CreateSyncProducer([]string{"marvelvm:9092"})
 	if clientErr != nil {
 		log.Println(clientErr)
@@ -20,7 +25,7 @@ func main() {
 		return
 	}
 
-	log.Println("Your data is stored with unique identifier important ", partition, offset)
+	sarama.Logger.Println("Your data is stored with unique identifier important ", partition, offset)
 	pCloseErr := producerClient.Close()
 	if pCloseErr != nil {
 		log.Println(pCloseErr)

@@ -2,14 +2,13 @@ package consumer
 
 import (
 	"log"
-	"sync"
+	"time"
 
 	"github.com/Shopify/sarama"
 )
 
 type Consumer struct {
 	ConsumerClient sarama.Consumer
-	Wg sync.WaitGroup
 }
 
 type KafkaConsumer interface {
@@ -23,18 +22,18 @@ func (c *Consumer) ConsumeMessage(topic string) error {
 		return getPartitionErr
 	}
 	log.Println("Partition List for the Topic:", topic, " is ", partitionList)
-	
+
 	for partition := range partitionList {
 		partitionConsumer, consumePartitionErr := c.ConsumerClient.ConsumePartition(topic, int32(partition), sarama.OffsetOldest)
 		if consumePartitionErr != nil {
 			return consumePartitionErr
 		}
-		
-		c.Wg.Add(1)
+
 		go c.ConsumePartitionMessages(partitionConsumer)
+		time.Sleep(3 * time.Second)
+		partitionConsumer.AsyncClose()
 	}
 
-	c.Wg.Wait()
 	return nil
 }
 
@@ -42,13 +41,6 @@ func (c *Consumer) ConsumePartitionMessages(partitionConsumer sarama.PartitionCo
 	for msg := range partitionConsumer.Messages() {
 		log.Printf("Partition:%d, Offset:%d, Key:%s, Value:%s", msg.Partition, msg.Offset, string(msg.Key), string(msg.Value))
 	}
-
-	err := partitionConsumer.Close()
-	if err != nil {
-		log.Println(err)
-	}
-
-	c.Wg.Done()
 }
 
 func (c *Consumer) Close() error {
@@ -66,7 +58,6 @@ func CreateNewConsumer(brokerList []string) (*Consumer, error) {
 
 	tempConsumer := Consumer{
 		ConsumerClient: consumer,
-		Wg: sync.WaitGroup{},
 	}
 	return &tempConsumer, nil
 }
