@@ -4,16 +4,16 @@ import (
 	"github.com/Shopify/sarama"
 )
 
-type Producer struct {
+type ProducerSync struct {
 	SyncProducer sarama.SyncProducer
 }
 
-type KafkaProducer interface {
+type KafkaProducerSync interface {
 	ProduceMessage(topic string, message string) (int32, int64, error)
-	Close()
+	Close() error
 }
 
-func (p *Producer) ProduceMessage(topic string, message string) (int32, int64, error) {
+func (p *ProducerSync) ProduceMessage(topic string, message string) (int32, int64, error) {
 	msg := &sarama.ProducerMessage{
 		Topic: topic,
 		Value: sarama.StringEncoder(message),
@@ -23,12 +23,12 @@ func (p *Producer) ProduceMessage(topic string, message string) (int32, int64, e
 	return partition, offset, err
 }
 
-func (p *Producer) Close() error {
+func (p *ProducerSync) Close() error {
 	err := p.SyncProducer.Close()
 	return err
 }
 
-func CreateSyncProducer(brokerList []string) (*Producer, error) {
+func CreateSyncProducer(brokerList []string) (*ProducerSync, error) {
 	config := sarama.NewConfig()
 	config.Producer.RequiredAcks = sarama.WaitForAll
 	config.Producer.Retry.Max = 10
@@ -39,7 +39,7 @@ func CreateSyncProducer(brokerList []string) (*Producer, error) {
 		return nil, err
 	}
 
-	tempProducer := Producer{
+	tempProducer := ProducerSync{
 		SyncProducer: producer,
 	}
 	return &tempProducer, nil

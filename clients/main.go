@@ -2,33 +2,53 @@ package main
 
 import (
 	"log"
-	"os"
+	//"os"
 
 	"kafka-client/producer"
 	"kafka-client/consumer"
 
-	"github.com/Shopify/sarama"
+	//"github.com/Shopify/sarama"
 )
 
 func main() {
-	sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
+	//sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 
-	producerClient, clientErr := producer.CreateSyncProducer([]string{"marvelvm:9092"})
+	var syncproducerClient producer.KafkaProducerSync
+	syncproducerClient, clientErr := producer.CreateSyncProducer([]string{"marvelvm:9092"})
 	if clientErr != nil {
 		log.Println(clientErr)
 		return
 	}
 
-	partition, offset, produceErr := producerClient.ProduceMessage("desert", "jamun")
+	partition, offset, produceErr := syncproducerClient.ProduceMessage("desert", "jamun")
 	if produceErr != nil {
 		log.Println(produceErr)
 		return
 	}
 
-	sarama.Logger.Println("Your data is stored with unique identifier important ", partition, offset)
-	pCloseErr := producerClient.Close()
+	log.Println("Your data is stored with unique identifier important ", partition, offset)
+	pCloseErr := syncproducerClient.Close()
 	if pCloseErr != nil {
 		log.Println(pCloseErr)
+		return
+	}
+
+
+	var asyncProducerClient producer.KafkaProducerAsync
+	asyncProducerClient, asyncClientErr := producer.CreateAsyncProducer([]string{"marvelvm:9092"})
+	if asyncClientErr != nil {
+		log.Println(asyncClientErr)
+		return
+	}
+
+	go asyncProducerClient.WatchProducerSuccesses()
+	go asyncProducerClient.WatchProducerErrors()
+
+	asyncProducerClient.ProduceMessage("desert", "favourite", "rasmalai")
+
+	pAyncCloseErr := asyncProducerClient.Close()
+	if pAyncCloseErr != nil {
+		log.Println(pAyncCloseErr)
 		return
 	}
 
