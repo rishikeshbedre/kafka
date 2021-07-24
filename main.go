@@ -2,16 +2,16 @@ package main
 
 import (
 	"log"
-	//"os"
+	"os"
+	"time"
 
-	"kafka-client/producer"
 	"kafka-client/consumer"
-
-	//"github.com/Shopify/sarama"
+	"kafka-client/producer"
+	"github.com/Shopify/sarama"
 )
 
 func main() {
-	//sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
+	sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 
 	var syncproducerClient producer.KafkaProducerSync
 	syncproducerClient, clientErr := producer.CreateSyncProducer([]string{"marvelvm:9092"})
@@ -33,7 +33,6 @@ func main() {
 		return
 	}
 
-
 	var asyncProducerClient producer.KafkaProducerAsync
 	asyncProducerClient, asyncClientErr := producer.CreateAsyncProducer([]string{"marvelvm:9092"})
 	if asyncClientErr != nil {
@@ -52,7 +51,6 @@ func main() {
 		return
 	}
 
-
 	consumerClient, clientErr := consumer.CreateNewConsumer([]string{"marvelvm:9092"})
 	if clientErr != nil {
 		log.Println(clientErr)
@@ -70,4 +68,75 @@ func main() {
 		log.Println(cCloseErr)
 		return
 	}
+
+	//-----------------------------------Consumer Group Example------------------------------------------
+
+	createTopic("food", 2)
+
+	var asyncProducerClient2 producer.KafkaProducerAsync
+	asyncProducerClient2, asyncClientErr2 := producer.CreateAsyncProducer([]string{"marvelvm:9092"})
+	if asyncClientErr2 != nil {
+		log.Println(asyncClientErr2)
+		return
+	}
+
+	go asyncProducerClient2.WatchProducerSuccesses()
+	go asyncProducerClient2.WatchProducerErrors()
+
+	go func() {
+		for i := 0; i < 5; i++ {
+			asyncProducerClient2.ProduceMessageWithPartition("food", "starter", "chicken wings", 0)
+			asyncProducerClient2.ProduceMessageWithPartition("food", "salad", "caesar salad", 1)
+		}
+
+		time.Sleep(50 * time.Second)
+		pAyncCloseErr2 := asyncProducerClient2.Close()
+		if pAyncCloseErr2 != nil {
+			log.Println(pAyncCloseErr2)
+			return
+		}
+	}()
+
+	var consumergroupclient consumer.KafkaConsumerGroup
+	consumergroupclient, cgClientErr := consumer.CreateNewConsumerGroup([]string{"marvelvm:9092"}, "foodconsumer")
+	if cgClientErr != nil {
+		log.Println(cgClientErr)
+		return
+	}
+
+	go consumergroupclient.WatchConsumerErrors()
+
+	go func() {
+		cgConsumeErr := consumergroupclient.Consume([]string{"food"})
+		if cgConsumeErr != nil {
+			log.Println(cgConsumeErr)
+			return
+		}
+	}()
+
+	time.Sleep(60 * time.Second)
+	cgCloseErr := consumergroupclient.Close()
+	if cgCloseErr != nil {
+		log.Println(cgCloseErr)
+		return
+	}
+
+}
+
+func createTopic(topic string, partition int32) {
+	brokerAddrs := []string{"marvelvm:9092"}
+    config := sarama.NewConfig()
+    config.Version = sarama.V2_1_0_0
+    admin, err := sarama.NewClusterAdmin(brokerAddrs, config)
+    if err != nil {
+        log.Fatal("Error while creating cluster admin: ", err.Error())
+    }
+    defer func() { _ = admin.Close() }()
+    err = admin.CreateTopic(topic, &sarama.TopicDetail{
+        NumPartitions:     partition,
+        ReplicationFactor: 1,
+    }, false)
+    if err != nil {
+        log.Fatal("Error while creating topic: ", err.Error())
+    }
 }

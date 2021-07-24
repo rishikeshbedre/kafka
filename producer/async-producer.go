@@ -12,6 +12,7 @@ type ProducerAsync struct {
 
 type KafkaProducerAsync interface {
 	ProduceMessage(topic string, key string, message string)
+	ProduceMessageWithPartition(topic string, key string, message string, partition int32)
 	WatchProducerSuccesses()
 	WatchProducerErrors()
 	Close() error
@@ -22,6 +23,17 @@ func (p *ProducerAsync) ProduceMessage(topic string, key string, message string)
 		Topic: topic,
 		Key: sarama.StringEncoder(key),
 		Value: sarama.StringEncoder(message),
+	}
+
+	p.AsyncProducer.Input() <- msg
+}
+
+func (p *ProducerAsync) ProduceMessageWithPartition(topic string, key string, message string, partition int32) {
+	msg := &sarama.ProducerMessage{
+		Topic: topic,
+		Key: sarama.StringEncoder(key),
+		Value: sarama.StringEncoder(message),
+		Partition: int32(partition),
 	}
 
 	p.AsyncProducer.Input() <- msg
@@ -50,6 +62,7 @@ func CreateAsyncProducer(brokerList []string) (*ProducerAsync, error) {
 	config.Producer.Retry.Max = 10
 	config.Producer.Return.Successes = true
 	config.Producer.Return.Errors = true
+	config.Producer.Partitioner = sarama.NewManualPartitioner
 
 	producer, err := sarama.NewAsyncProducer(brokerList, config)
 	if err != nil {
