@@ -62,7 +62,7 @@ func CreateAsyncProducer(brokerList []string) (*ProducerAsync, error) {
 	config.Producer.Retry.Max = 10
 	config.Producer.Return.Successes = true
 	config.Producer.Return.Errors = true
-	config.Producer.Partitioner = sarama.NewManualPartitioner
+	//config.Producer.Partitioner = sarama.NewManualPartitioner
 
 	producer, err := sarama.NewAsyncProducer(brokerList, config)
 	if err != nil {

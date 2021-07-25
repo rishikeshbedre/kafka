@@ -85,8 +85,10 @@ func main() {
 
 	go func() {
 		for i := 0; i < 5; i++ {
-			asyncProducerClient2.ProduceMessageWithPartition("food", "starter", "chicken wings", 0)
-			asyncProducerClient2.ProduceMessageWithPartition("food", "salad", "caesar salad", 1)
+			// asyncProducerClient2.ProduceMessageWithPartition("food", "starter", "chicken wings", 0)
+			// asyncProducerClient2.ProduceMessageWithPartition("food", "salad", "caesar salad", 1)
+			asyncProducerClient2.ProduceMessage("food", "0", "chicken wings")
+			asyncProducerClient2.ProduceMessage("food", "1", "caesar salad")
 		}
 
 		time.Sleep(50 * time.Second)
@@ -98,7 +100,7 @@ func main() {
 	}()
 
 	var consumergroupclient consumer.KafkaConsumerGroup
-	consumergroupclient, cgClientErr := consumer.CreateNewConsumerGroup([]string{"marvelvm:9092"}, "foodconsumer")
+	consumergroupclient, cgClientErr := consumer.CreateNewConsumerGroup([]string{"marvelvm:9092"}, "foodconsumer", "food-starter")
 	if cgClientErr != nil {
 		log.Println(cgClientErr)
 		return
@@ -114,10 +116,35 @@ func main() {
 		}
 	}()
 
+
+	var consumergroupclient2 consumer.KafkaConsumerGroup
+	consumergroupclient2, cgClientErr2 := consumer.CreateNewConsumerGroup([]string{"marvelvm:9092"}, "foodconsumer", "food-salad")
+	if cgClientErr2 != nil {
+		log.Println(cgClientErr2)
+		return
+	}
+
+	go consumergroupclient2.WatchConsumerErrors()
+
+	go func() {
+		cgConsumeErr2 := consumergroupclient2.Consume([]string{"food"})
+		if cgConsumeErr2 != nil {
+			log.Println(cgConsumeErr2)
+			return
+		}
+	}()
+
+
 	time.Sleep(60 * time.Second)
 	cgCloseErr := consumergroupclient.Close()
 	if cgCloseErr != nil {
 		log.Println(cgCloseErr)
+		return
+	}
+
+	cgCloseErr2 := consumergroupclient2.Close()
+	if cgCloseErr2 != nil {
+		log.Println(cgCloseErr2)
 		return
 	}
 
@@ -129,7 +156,7 @@ func createTopic(topic string, partition int32) {
     config.Version = sarama.V2_1_0_0
     admin, err := sarama.NewClusterAdmin(brokerAddrs, config)
     if err != nil {
-        log.Fatal("Error while creating cluster admin: ", err.Error())
+        log.Println("Error while creating cluster admin: ", err.Error())
     }
     defer func() { _ = admin.Close() }()
     err = admin.CreateTopic(topic, &sarama.TopicDetail{
@@ -137,6 +164,6 @@ func createTopic(topic string, partition int32) {
         ReplicationFactor: 1,
     }, false)
     if err != nil {
-        log.Fatal("Error while creating topic: ", err.Error())
+        log.Println("Error while creating topic: ", err.Error())
     }
 }

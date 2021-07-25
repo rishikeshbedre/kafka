@@ -7,7 +7,9 @@ import (
 )
 
 // ConsumerGroupHandler represents the sarama consumer group
-type ConsumerGroupHandler struct{}
+type ConsumerGroupHandler struct{
+	ClientID string
+}
 
 // Setup is run before consumer start consuming, is normally used to setup things such as database connections
 func (cgh ConsumerGroupHandler) Setup(_ sarama.ConsumerGroupSession) error   { return nil }
@@ -19,8 +21,7 @@ func (cgh ConsumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error { r
 // do with the message. In this example the message will be logged with the topic name, partition and message value.
 func (cgh ConsumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
-		log.Printf("Message topic:%q partition:%d offset:%d message: %v\n",
-			msg.Topic, msg.Partition, msg.Offset, string(msg.Value))
+		log.Printf("Message clientID:%v topic:%q partition:%d offset:%d message: %v\n", cgh.ClientID, msg.Topic, msg.Partition, msg.Offset, string(msg.Value))
 		sess.MarkMessage(msg, "")
 	}
 	return nil
